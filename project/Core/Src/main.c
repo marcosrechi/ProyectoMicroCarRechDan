@@ -21,6 +21,9 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "i2c-lcd.h"
+#include "stdio.h"
+
 
 /* USER CODE END Includes */
 
@@ -42,15 +45,24 @@
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
 
-TIM_HandleTypeDef htim2;
+I2C_HandleTypeDef hi2c1;
+
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim6;
+TIM_HandleTypeDef htim7;
 
 /* USER CODE BEGIN PV */
+
 int16_t potval = 0;
 uint8_t estado = 0;
 uint8_t te_elegido = 0;
 
-uint8_t flagpr = 0; //flag para prueba parcial
+int esta_abajo = 0;
+int temperatura = 0;
+
+
+int flagtemp = 0;
+
 
 /* USER CODE END PV */
 
@@ -58,8 +70,10 @@ uint8_t flagpr = 0; //flag para prueba parcial
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_ADC1_Init(void);
-static void MX_TIM2_Init(void);
 static void MX_TIM6_Init(void);
+static void MX_I2C1_Init(void);
+static void MX_TIM1_Init(void);
+static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -68,10 +82,26 @@ static void MX_TIM6_Init(void);
 /* USER CODE BEGIN 0 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim){
 	if (htim->Instance == TIM6){
-		HAL_GPIO_WritePin(GPIOD, GPIO_PIN_9, 0); //Apagamos la placa calefactada
-		flagpr = 0;
+
+		// SUBIR BOLSA DE TE DURANTE 1,5 SEGUNDOS (HORARIO)
+		__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, 500);
+		//HAL_Delay(2000);
+
+		esta_abajo = 0;
+		estado = 5;
+	}
+
+	else if (htim->Instance == TIM7){
+
+		// SUBIR BOLSA DE TE DURANTE 1,5 SEGUNDOS (HORARIO)
+		__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, 500);
+
+		esta_abajo = 0;
+		estado = 5;
 	}
 }
+int fila=0;
+int col=0;
 
 /* USER CODE END 0 */
 
@@ -105,11 +135,14 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_ADC1_Init();
-  MX_TIM2_Init();
   MX_TIM6_Init();
+  MX_I2C1_Init();
+  MX_TIM1_Init();
+  MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
 
   HAL_ADC_Start_IT(&hadc1);
+  HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
 
   /* USER CODE END 2 */
 
@@ -121,27 +154,129 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 
-	  	HAL_ADC_Start(&hadc1);
-	  	if(HAL_ADC_PollForConversion(&hadc1, 200)==HAL_OK)
-	  	{
-	  		potval = HAL_ADC_GetValue(&hadc1);
-	  	}
 
-		if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0)){
-			flagpr = 1;
-		}
 
-		if (flagpr == 1){
-			//... //bajamos la bolsa de té
-			HAL_TIM_Base_Start_IT(&htim6); //Iniciamos el temporizador
-			if(potval < 3000){
-				HAL_GPIO_WritePin(GPIOD, GPIO_PIN_9, 1); //Encendemos la placa
-			}
-			else if(potval >= 3000){
-				HAL_GPIO_WritePin(GPIOD, GPIO_PIN_9, 0);
-			}
-		}
+	  switch (estado){
+	  	  case 0: // ELECCION DE TE
 
+	  		__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, 500);
+
+	  		  lcd_init();
+	  		  lcd_clear();
+	  		  lcd_cur(0, 0);
+	  		  lcd_enviar_string ("(1) TE ROJO");
+	  		  lcd_cur(1, 0);
+	  		  lcd_enviar_string("(2)TE VERDE");
+
+	  		  // Te Rojo
+	  		  if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1) == GPIO_PIN_SET){
+	  			  estado = 1;
+	  			  te_elegido = 0;
+	  		  }
+
+	  		  // Te Verde
+	  		  else if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) == GPIO_PIN_SET){
+	  			  estado = 2;
+	  			  te_elegido = 1;
+
+	  		  }
+
+	  		  break;
+
+		  case 1: //ELEGIMOS EL TÉ ROJO
+			  lcd_init();
+			  lcd_clear();
+			  lcd_cur(0, 0);
+			  lcd_enviar_string ("TE ROJO");
+			  lcd_cur(1, 0);
+			  lcd_enviar_string("Pulse USER");
+
+			  if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) {
+				  temperatura = 2000;
+				  estado = 3;
+			  }
+
+			  break;
+		  case 2: //ELEGIMOS EL TÉ VERDE
+			  lcd_init();
+			  lcd_clear();
+			  lcd_cur(0, 0);
+			  lcd_enviar_string ("TE VERDE");
+			  lcd_cur(1, 0);
+			  lcd_enviar_string("Pulse USER");
+
+			  if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) {
+				  temperatura = 3500;
+				  estado = 3;
+			  }
+			  break;
+		  case 3: // CALENTAR PLACA
+			  lcd_init();
+			  lcd_clear();
+			  lcd_cur(0, 0);
+			  lcd_enviar_string ("Preparando...");
+			  lcd_cur(1, 0);
+			  lcd_enviar_string("por favor espere");
+
+			  // ENCENDEMOS PLACA
+			  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_9, 1);
+
+			  // MEDIMOS TEMPERATURA
+			  HAL_ADC_Start(&hadc1);
+
+			  if(HAL_ADC_PollForConversion(&hadc1, 200)==HAL_OK){
+				  potval = HAL_ADC_GetValue(&hadc1);
+			  }
+
+			  if(potval >= temperatura) {
+				  // APAGAMOS PLACA
+				  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_9, 0);
+				  potval = 0;
+				  estado = 4;
+			  }
+			  break;
+		  case 4: // MOVER BOLSA DE TE
+
+			 lcd_init();
+			 lcd_clear();
+			 lcd_cur(0, 0);
+			 lcd_enviar_string ("Preparando...");
+			 lcd_cur(1, 0);
+			 lcd_enviar_string("por favor espere");
+
+			 if(esta_abajo == 0){
+
+				 __HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, 2500);
+				 esta_abajo = 1;
+
+				 if(te_elegido == 0)
+					 HAL_TIM_Base_Start_IT(&htim6);
+				 else if(te_elegido == 1)
+					 HAL_TIM_Base_Start_IT(&htim7);
+
+				 /*
+
+				 Este sería el código sin temporizadores con interrupciones
+
+				 HAL_Delay(7000);
+				 __HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, 500);
+				 estado = 5;
+				 */
+			  }
+
+
+			  break;
+		  case 5: //FINALIZA LA PREPARACIÓN DEL TÉ
+
+			  // LA PLACA ENSEÑA "Tu te esta listo"
+			  lcd_init();
+			  lcd_clear();
+			  lcd_cur(0, 0);
+			  lcd_enviar_string ("Listo!");
+			  lcd_cur(1, 0);
+			  lcd_enviar_string("retire taza");
+			  break;
+	  }
 
   }
   /* USER CODE END 3 */
@@ -164,14 +299,13 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 8;
-  RCC_OscInitStruct.PLL.PLLN = 50;
-  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV4;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 4;
+  RCC_OscInitStruct.PLL.PLLN = 72;
+  RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 7;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
@@ -184,10 +318,10 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     Error_Handler();
   }
@@ -246,47 +380,111 @@ static void MX_ADC1_Init(void)
 }
 
 /**
-  * @brief TIM2 Initialization Function
+  * @brief I2C1 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_TIM2_Init(void)
+static void MX_I2C1_Init(void)
 {
 
-  /* USER CODE BEGIN TIM2_Init 0 */
+  /* USER CODE BEGIN I2C1_Init 0 */
 
-  /* USER CODE END TIM2_Init 0 */
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.ClockSpeed = 100000;
+  hi2c1.Init.DutyCycle = I2C_DUTYCYCLE_2;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
 
-  /* USER CODE BEGIN TIM2_Init 1 */
+  /* USER CODE BEGIN TIM1_Init 1 */
 
-  /* USER CODE END TIM2_Init 1 */
-  htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 0;
-  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 4294967295;
-  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 25-1;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 20000-1;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
   {
     Error_Handler();
   }
   sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim1) != HAL_OK)
   {
     Error_Handler();
   }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN TIM2_Init 2 */
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 500;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim1, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
 
-  /* USER CODE END TIM2_Init 2 */
+  /* USER CODE END TIM1_Init 2 */
+  HAL_TIM_MspPostInit(&htim1);
 
 }
 
@@ -308,9 +506,9 @@ static void MX_TIM6_Init(void)
 
   /* USER CODE END TIM6_Init 1 */
   htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 15999;
+  htim6.Init.Prescaler = 2499;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim6.Init.Period = 9999;
+  htim6.Init.Period = 29999;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
   {
@@ -325,6 +523,44 @@ static void MX_TIM6_Init(void)
   /* USER CODE BEGIN TIM6_Init 2 */
 
   /* USER CODE END TIM6_Init 2 */
+
+}
+
+/**
+  * @brief TIM7 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM7_Init(void)
+{
+
+  /* USER CODE BEGIN TIM7_Init 0 */
+
+  /* USER CODE END TIM7_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM7_Init 1 */
+
+  /* USER CODE END TIM7_Init 1 */
+  htim7.Instance = TIM7;
+  htim7.Init.Prescaler = 2499;
+  htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim7.Init.Period = 60000-1;
+  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim7, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM7_Init 2 */
+
+  /* USER CODE END TIM7_Init 2 */
 
 }
 
@@ -385,6 +621,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : Te_Rojo_Pin */
+  GPIO_InitStruct.Pin = Te_Rojo_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(Te_Rojo_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pin : I2S3_WS_Pin */
   GPIO_InitStruct.Pin = I2S3_WS_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
@@ -400,6 +642,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : Te_Verde_Pin */
+  GPIO_InitStruct.Pin = Te_Verde_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(Te_Verde_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : BOOT1_Pin */
   GPIO_InitStruct.Pin = BOOT1_Pin;
@@ -451,14 +699,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(OTG_FS_OverCurrent_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : Audio_SCL_Pin Audio_SDA_Pin */
-  GPIO_InitStruct.Pin = Audio_SCL_Pin|Audio_SDA_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_OD;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  GPIO_InitStruct.Alternate = GPIO_AF4_I2C1;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
