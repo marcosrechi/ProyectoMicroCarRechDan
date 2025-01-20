@@ -53,15 +53,12 @@ TIM_HandleTypeDef htim7;
 
 /* USER CODE BEGIN PV */
 
-int16_t potval = 0;
-uint8_t estado = 0;
-uint8_t te_elegido = 0;
+volatile int16_t potval = 0;
+volatile uint8_t estado = 0;
+volatile uint8_t te_elegido = 0;
 
-int esta_abajo = 0;
-int temperatura = 0;
-
-
-int flagtemp = 0;
+volatile uint8_t esta_abajo = 0;
+volatile uint8_t temperatura = 0;
 
 
 /* USER CODE END PV */
@@ -192,7 +189,7 @@ int main(void)
 			  lcd_enviar_string("Pulse USER");
 
 			  if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) {
-				  temperatura = 2000;
+				  temperatura = (uint8_t)2000;
 				  estado = 3;
 			  }
 
@@ -206,7 +203,7 @@ int main(void)
 			  lcd_enviar_string("Pulse USER");
 
 			  if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) {
-				  temperatura = 3500;
+				  temperatura = (uint8_t)3500;
 				  estado = 3;
 			  }
 			  break;

@@ -60,8 +60,8 @@ all: main-build
 main-build: MicrosCarRechDan.elf secondary-outputs
 
 # Tool invocations
-MicrosCarRechDan.elf MicrosCarRechDan.map: $(OBJS) $(USER_OBJS) C:\Users\olsso\Documents\Universidad\4.1\Sistemas_Electronicos_Digitales\ProyectoMicroCarRechDan\project\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "MicrosCarRechDan.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\olsso\Documents\Universidad\4.1\Sistemas_Electronicos_Digitales\ProyectoMicroCarRechDan\project\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="MicrosCarRechDan.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+MicrosCarRechDan.elf MicrosCarRechDan.map: $(OBJS) $(USER_OBJS) C:\Users\marco\OneDrive\Documentos\GitHub\ProyectoMicroCarRechDan\project\STM32F407VGTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "MicrosCarRechDan.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\marco\OneDrive\Documentos\GitHub\ProyectoMicroCarRechDan\project\STM32F407VGTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="MicrosCarRechDan.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
