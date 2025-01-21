@@ -253,10 +253,15 @@ int main(void)
 
 				 Este sería el código sin temporizadores con interrupciones
 
-				 HAL_Delay(7000);
+				 if(te_elegido == 0)
+					 HAL_Delay(3000);
+				 else if(te_elegido == 1)
+					 HAL_Delay(6000);
 				 __HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, 500);
 				 estado = 5;
+
 				 */
+
 			  }
 
 
