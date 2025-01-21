@@ -53,12 +53,11 @@ TIM_HandleTypeDef htim7;
 
 /* USER CODE BEGIN PV */
 
-volatile int16_t potval = 0;
+int16_t potval = 0;
 volatile uint8_t estado = 0;
-volatile uint8_t te_elegido = 0;
-
+uint8_t te_elegido = 0;
 volatile uint8_t esta_abajo = 0;
-volatile uint8_t temperatura = 0;
+uint8_t temperatura = 0;
 
 
 /* USER CODE END PV */
@@ -80,9 +79,8 @@ static void MX_TIM7_Init(void);
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim){
 	if (htim->Instance == TIM6){
 
-		// SUBIR BOLSA DE TE DURANTE 1,5 SEGUNDOS (HORARIO)
+		// SUBIR BOLSA (SERVO A 0º)
 		__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, 500);
-		//HAL_Delay(2000);
 
 		esta_abajo = 0;
 		estado = 5;
@@ -90,7 +88,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim){
 
 	else if (htim->Instance == TIM7){
 
-		// SUBIR BOLSA DE TE DURANTE 1,5 SEGUNDOS (HORARIO)
+		// SUBIR BOLSA (SERVO A 0º)
 		__HAL_TIM_SetCompare(&htim1, TIM_CHANNEL_1, 500);
 
 		esta_abajo = 0;
@@ -431,7 +429,7 @@ static void MX_TIM1_Init(void)
 
   /* USER CODE END TIM1_Init 1 */
   htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 25-1;
+  htim1.Init.Prescaler = 72-1;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim1.Init.Period = 20000-1;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -503,7 +501,7 @@ static void MX_TIM6_Init(void)
 
   /* USER CODE END TIM6_Init 1 */
   htim6.Instance = TIM6;
-  htim6.Init.Prescaler = 2499;
+  htim6.Init.Prescaler = 7200-1;
   htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim6.Init.Period = 29999;
   htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -541,7 +539,7 @@ static void MX_TIM7_Init(void)
 
   /* USER CODE END TIM7_Init 1 */
   htim7.Instance = TIM7;
-  htim7.Init.Prescaler = 2499;
+  htim7.Init.Prescaler = 7200-1;
   htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim7.Init.Period = 60000-1;
   htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
