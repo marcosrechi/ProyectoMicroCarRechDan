@@ -95,6 +95,34 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim){
 		estado = 5;
 	}
 }
+
+uint8_t NoRebotes_ReadPin(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin) {
+    static uint32_t ultimo_tick = 0; // Almacena el último tick
+    static uint8_t cuenta = 0; // Contador de pulsaciones válidas
+    static uint8_t estado = 0; // Estado actual del botón
+
+    // Leemos el estado actual del pin
+    if (NoRebotes_ReadPin(GPIOx, GPIO_Pin) == GPIO_PIN_SET) {
+        // Si el tiempo transcurrido es mayor a 20 ms
+        if (HAL_GetTick() - ultimo_tick > 20) {
+            ultimo_tick = HAL_GetTick();
+            if (NoRebotes_ReadPin(GPIOx, GPIO_Pin) == GPIO_PIN_RESET) {
+                cuenta = 0;
+            } else {
+                cuenta++;
+            }
+
+            // Si el botón es presionado 3 veces consecutivas
+            if (cuenta == 3) {
+                cuenta = 0;
+                estado = !estado; // Cambiamos el estado del botón
+            }
+        }
+    }
+
+    return estado; // Devolvemos el estado del botón
+}
+
 int fila=0;
 int col=0;
 
@@ -164,13 +192,13 @@ int main(void)
 	  		  lcd_enviar_string("(2)TE VERDE");
 
 	  		  // Te Rojo
-	  		  if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_1) == GPIO_PIN_SET){
+	  		  if(NoRebotes_ReadPin(GPIOA, GPIO_PIN_1) == GPIO_PIN_SET){
 	  			  estado = 1;
 	  			  te_elegido = 0;
 	  		  }
 
 	  		  // Te Verde
-	  		  else if(HAL_GPIO_ReadPin(GPIOB, GPIO_PIN_1) == GPIO_PIN_SET){
+	  		  else if(NoRebotes_ReadPin(GPIOB, GPIO_PIN_1) == GPIO_PIN_SET){
 	  			  estado = 2;
 	  			  te_elegido = 1;
 
@@ -186,7 +214,7 @@ int main(void)
 			  lcd_cur(1, 0);
 			  lcd_enviar_string("Pulse USER");
 
-			  if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) {
+			  if (NoRebotes_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) {
 				  temperatura = (uint8_t)2000;
 				  estado = 3;
 			  }
@@ -200,7 +228,7 @@ int main(void)
 			  lcd_cur(1, 0);
 			  lcd_enviar_string("Pulse USER");
 
-			  if (HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) {
+			  if (NoRebotes_ReadPin(GPIOA, GPIO_PIN_0) == GPIO_PIN_SET) {
 				  temperatura = (uint8_t)3500;
 				  estado = 3;
 			  }
