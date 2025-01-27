@@ -102,11 +102,11 @@ uint8_t NoRebotes_ReadPin(GPIO_TypeDef *GPIOx, uint16_t GPIO_Pin) {
     static uint8_t estado = 0; // Estado actual del botón
 
     // Leemos el estado actual del pin
-    if (NoRebotes_ReadPin(GPIOx, GPIO_Pin) == GPIO_PIN_SET) {
+    if (HAL_GPIO_ReadPin(GPIOx, GPIO_Pin) == GPIO_PIN_SET) {
         // Si el tiempo transcurrido es mayor a 20 ms
         if (HAL_GetTick() - ultimo_tick > 20) {
             ultimo_tick = HAL_GetTick();
-            if (NoRebotes_ReadPin(GPIOx, GPIO_Pin) == GPIO_PIN_RESET) {
+            if (HAL_GPIO_ReadPin(GPIOx, GPIO_Pin) == GPIO_PIN_RESET) {
                 cuenta = 0;
             } else {
                 cuenta++;
